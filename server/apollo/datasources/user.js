@@ -8,10 +8,13 @@
 import { MongoDataSource } from 'apollo-datasource-mongodb';
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcrypt';
-import { jwt } from 'jsonwebtoken';
-import { UserInputError } from 'apollo-server-errors';
+import jwt from 'jsonwebtoken';
+import { UserInputError, AuthenticationError } from 'apollo-server-errors';
 import _ from 'lodash';
 import { createTokens, refreshCookieOptions } from './utils';
+
+const ACCESS_KEY = 'NEEDTOMAKESECRET';
+const REFRESH_KEY = 'KEYSBUTIAMLAZY';
 
 export default class UserDataSource extends MongoDataSource {
   initialize(config) {
@@ -21,11 +24,62 @@ export default class UserDataSource extends MongoDataSource {
     this.userSignup = this.userSignup.bind(this);
     this.userLogin = this.userLogin.bind(this);
     this.getAllUsers = this.getAllUsers.bind(this);
+    this.getUserAccessToken = this.getUserAccessToken.bind(this);
   }
 
   async me({ currentUser }) {
-    console.log(currentUser.id);
-    return await this.model.findOne({ _id: currentUser.id });
+    if (currentUser) {
+      console.log(`me: currentUser.id ${currentUser.id}`);
+      return await this.model.findOne({ _id: currentUser.id });
+    } else {
+      console.log(`me: currentUser not found`);
+      throw new AuthenticationError();
+    }
+    // console.log(`me: currentUser.id ${currentUser.id}`);
+    // return await this.model.findOne({ _id: currentUser.id });
+  }
+
+  async getUserAccessToken(context) {
+    if (!context.req) throw new Error(`No request found.`);
+
+    const refreshToken = context.req.cookies.refreshToken;
+    // console.log(`cookies: `);
+    console.log(`refreshToken: ${refreshToken}`);
+
+    let refreshTokenPayload;
+    try {
+      refreshTokenPayload = jwt.verify(refreshToken, REFRESH_KEY);
+      console.log(`refreshPayload: ${JSON.stringify(refreshTokenPayload)}`);
+      console.log(`REFRESH ID: ` + refreshTokenPayload.id);
+    } catch (err) {
+      // context.res.clearCookie('refreshToken', refreshCookieOptions);
+      console.log(`cookies cleared Error: ${err}`);
+      throw new AuthenticationError(err);
+    }
+
+    const { id } = refreshTokenPayload;
+    let userExists;
+    try {
+      userExists = await this.model.findById(id);
+      console.log(`USER EXISTS: ` + userExists);
+    } catch (err) {
+      throw new Error(err + ` userExists error`);
+    }
+
+    // const issCurrent = iss === userExists.iss;
+    // if (!issCurrent) throw new AuthenticationError(`ISS Invalid`);
+
+    const { accessToken, expiresIn } = createTokens(userExists, context.res);
+    const success = !!accessToken;
+
+    return {
+      success: success,
+      message: success
+        ? `Access Token Generated`
+        : `There was an error generating the new Access Token`,
+      user: userExists,
+      accessToken,
+    };
   }
 
   async userSignup({ user: { username, password, role } }, context) {
@@ -76,8 +130,9 @@ export default class UserDataSource extends MongoDataSource {
 
   async userLogin({ user: { username, password } }, { res }) {
     console.log(`userLogin - ${username} - ${password}`);
-    const ACCESS_KEY = 'NEEDTOMAKESECRET';
-    const REFRESH_KEY = 'KEYSBUTIAMLAZY';
+
+    // TODO remove keys from here
+
     try {
       let userExists;
 
@@ -91,6 +146,8 @@ export default class UserDataSource extends MongoDataSource {
 
       if (!userExists || !userExists.id)
         throw new UserInputError(`${username} not found`);
+
+      // TODO check if role is revoked
 
       let isPasswordValid;
       try {
@@ -111,13 +168,15 @@ export default class UserDataSource extends MongoDataSource {
         expiresIn,
       };
     } catch (err) {
-      return {
+      const data = {
         success: false,
-        message: err.message || `Login error occurred`,
+        message: `${err.message}` || `Login error occurred`,
         user: null,
         accessToken: null,
         expiresIn: null,
       };
+      console.log(err);
+      return data;
     }
   }
 
@@ -130,7 +189,7 @@ export default class UserDataSource extends MongoDataSource {
         .sort({ username: 1 })
         .exec();
     } catch (error) {
-      throw error;
+      throw new Error(error);
     }
     const success = foundDocs && foundDocs.length ? !!foundDocs[0].id : false;
 

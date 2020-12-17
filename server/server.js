@@ -25,9 +25,6 @@ import resolvers from './apollo/resolvers';
 import dataSources from './apollo/datasources';
 import models from './mongoose/models';
 
-console.log(dataSources);
-console.log(models.UserModel);
-
 // Env Vars
 require('dotenv').config();
 const MONGO_URI = process.env.MONGO_URI;
@@ -55,17 +52,20 @@ mongoose.connection.once('open', () => {
 const server = new ApolloServer({
   typeDefs,
   resolvers,
+  introspection: true,
   playground: true,
   dataSources: () => ({
     userData: new dataSources.UserDataSource(models.UserModel),
   }),
-  formatError(err) {
-    if (err.originalError instanceof UserInputError) {
-      return new Error(`Input Error: ${err.originalError.message}`);
-    } else {
-      return new Error(`Other error for now: ${err}`);
-    }
-  },
+  // formatError(err) {
+  //   if (err.originalError instanceof UserInputError) {
+  //     return new Error(`Input Error: ${err.originalError.message}`);
+  //   } else if (err.originalError instanceof AuthenticationError) {
+  //     return new Error(`Auth Error: ${err.originalError.message}`);
+  //   } else {
+  //     return new Error(`Other error for now: ${err}`);
+  //   }
+  // },
   // TODO turn tracing off in prod
   tracing: true,
 
@@ -74,8 +74,9 @@ const server = new ApolloServer({
     // console.log(headers.authorizaton);
 
     if (req.headers.authorization) {
+      console.log('auth found');
+      // authorization: Bearer $token
       const accessToken = req.headers.authorization.split(' ')[1];
-      // console.log(`Access Token: ${accessToken}`);
 
       let accessPayload;
       if (accessToken) {
@@ -83,7 +84,9 @@ const server = new ApolloServer({
           accessPayload = jwt.verify(accessToken, ACCESS_KEY);
           //console.log(`Payload: ${accessPayload}`);
         } catch (err) {
-          console.log(`Error: ${err}`);
+          // TODO change errors around so introspection query does not return 400
+          // and cause loop
+          throw new AuthenticationError(err);
         }
       }
 
@@ -99,7 +102,6 @@ const server = new ApolloServer({
         };
       }
     }
-    // console.log(`hello ${currentUser}`);
     return { req, res, currentUser };
   },
 });
@@ -112,9 +114,26 @@ app.use(cookieParser());
 app.use(bodyParser.json({}));
 
 // TODO Set up cors config for prod
-// app.use(cors({ credentials: true }));
+//const allowedOrigins = ['http://localhost:3000'];
+const corsOptions = {
+  origin: [
+    'http://localhost:3000',
+    'http://192.168.6.57',
+    'http://192.168.6.51:3000',
+  ],
+  // origin: 'http://192.168.6.51:3000',
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200,
+  credentials: true,
+};
 
-server.applyMiddleware({ app, path: '/graphql' });
+// const corsOptions = {
+//   origin: '*',
+//   credentials: true,
+// };
+// app.use(cors(corsOptions));
+
+server.applyMiddleware({ app, path: '/graphql', cors: corsOptions });
 
 // LAUNCH
 app.listen({ port: GQL_PORT }, () => {

@@ -6,6 +6,15 @@
 import { gql } from 'apollo-server-express';
 
 const user = gql`
+  ## USER AUTH
+  type GetAccessTokenResponse {
+    success: String!
+    message: String!
+    user: User
+    accessToken: String
+    expiresIn: String
+  }
+  ## USER
   type User {
     _id: ID!
     username: String!
@@ -49,12 +58,14 @@ const user = gql`
 
   extend type Query {
     me: User
-    userLogin(user: UserLogInUserInput!): UserLogInResponse!
+
     getAllUsers: GetAllUsersResponse!
   }
 
   extend type Mutation {
+    getUserAccessToken: GetAccessTokenResponse!
     userSignup(user: UserSignUpUserInput!): UserSignUpResponse!
+    userLogin(user: UserLogInUserInput!): UserLogInResponse!
   }
 `;
 
