@@ -56,6 +56,7 @@ const server = new ApolloServer({
   playground: true,
   dataSources: () => ({
     userData: new dataSources.UserDataSource(models.UserModel),
+    memberData: new dataSources.MemberDataSource(models.MemberModel),
   }),
   // formatError(err) {
   //   if (err.originalError instanceof UserInputError) {
@@ -73,6 +74,17 @@ const server = new ApolloServer({
     let currentUser;
     // console.log(headers.authorizaton);
 
+    /**
+     * TODO Change scope to check for expired token
+     * This should check if token is expired and throw a
+     * TOKEN_EXPIRED error code if it is
+     * client should request refresh on TOKEN_EXPIRED
+     * so UNATUHENTICATED can be reserved for RBAC/Authorization
+     *
+     * If it is not expired then check validity and throw an
+     * UNAUTHENTICATED
+     */
+
     if (req.headers.authorization) {
       console.log('auth found');
       // authorization: Bearer $token
@@ -84,8 +96,6 @@ const server = new ApolloServer({
           accessPayload = jwt.verify(accessToken, ACCESS_KEY);
           //console.log(`Payload: ${accessPayload}`);
         } catch (err) {
-          // TODO change errors around so introspection query does not return 400
-          // and cause loop
           throw new AuthenticationError(err);
         }
       }

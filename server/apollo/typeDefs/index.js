@@ -7,6 +7,7 @@
 import { gql } from 'apollo-server-express';
 
 const userSchema = require('./user');
+const memberSchema = require('./member');
 
 const root = gql`
   type Query {
@@ -18,6 +19,6 @@ const root = gql`
   }
 `;
 
-const schemaArray = [root, userSchema];
+const schemaArray = [root, userSchema, memberSchema];
 
 export default schemaArray;

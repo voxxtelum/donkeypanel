@@ -31,5 +31,38 @@ const userSchema = new Schema(
   { timestamps: true }
 );
 
+// MEMEBER
+const memberSchema = new Schema(
+  {
+    username: {
+      type: String,
+      unique: true,
+      required: [true, 'Username required.'],
+      trim: true,
+      index: { locale: 'en', strength: 2 },
+    },
+    class: String,
+    spec: String,
+    role: String,
+    isMain: {
+      type: Boolean,
+      default: true,
+    },
+    main: Schema.Types.ObjectId,
+    alts: [Schema.Types.ObjectId],
+    raider: Boolean,
+    team: [String],
+    guildRank: {
+      type: Number,
+      default: 10,
+    },
+    active: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  { timestamps: true }
+);
+
 // EXPORTS
-export { configSchema, userSchema };
+export { configSchema, userSchema, memberSchema };

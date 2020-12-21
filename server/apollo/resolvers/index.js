@@ -6,7 +6,8 @@
  */
 
 import userResolvers from './user';
+import memberReslovers from './member';
 
-const resolvers = [userResolvers];
+const resolvers = [userResolvers, memberReslovers];
 
 export default resolvers;

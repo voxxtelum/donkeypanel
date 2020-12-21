@@ -15,6 +15,7 @@ const user = gql`
     expiresIn: String
   }
   ## USER
+
   type User {
     _id: ID!
     username: String!
