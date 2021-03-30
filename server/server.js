@@ -17,6 +17,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
+import http from 'http';
 
 // Custom Imports
 // -- typeDefs, resolvers, utils, etc
@@ -38,6 +39,7 @@ mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
   useCreateIndex: true,
+  useFindAndModify: false,
 });
 mongoose.connection.on('error', (error) => console.error(error));
 mongoose.connection.once('open', () => {
@@ -70,7 +72,7 @@ const server = new ApolloServer({
   // TODO turn tracing off in prod
   tracing: true,
 
-  context: async ({ req, res }) => {
+  context: async ({ req, res, connection }) => {
     let currentUser;
     // console.log(headers.authorizaton);
 
@@ -84,32 +86,35 @@ const server = new ApolloServer({
      * If it is not expired then check validity and throw an
      * UNAUTHENTICATED
      */
+    if (connection) {
+      //return connection.context;
+    } else {
+      if (req.headers.authorization) {
+        console.log('auth found');
+        // authorization: Bearer $token
+        const accessToken = req.headers.authorization.split(' ')[1];
 
-    if (req.headers.authorization) {
-      console.log('auth found');
-      // authorization: Bearer $token
-      const accessToken = req.headers.authorization.split(' ')[1];
-
-      let accessPayload;
-      if (accessToken) {
-        try {
-          accessPayload = jwt.verify(accessToken, ACCESS_KEY);
-          //console.log(`Payload: ${accessPayload}`);
-        } catch (err) {
-          throw new AuthenticationError(err);
+        let accessPayload;
+        if (accessToken) {
+          try {
+            accessPayload = jwt.verify(accessToken, ACCESS_KEY);
+            //console.log(`Payload: ${accessPayload}`);
+          } catch (err) {
+            throw new AuthenticationError(err);
+          }
         }
-      }
 
-      if (!accessPayload) {
-        throw new AuthenticationError(`Access Token Invalid`);
-      }
+        if (!accessPayload) {
+          throw new AuthenticationError(`Access Token Invalid`);
+        }
 
-      if (accessPayload) {
-        currentUser = {
-          id: accessPayload.id,
-          username: accessPayload.username,
-          role: accessPayload.role,
-        };
+        if (accessPayload) {
+          currentUser = {
+            id: accessPayload.id,
+            username: accessPayload.username,
+            role: accessPayload.role,
+          };
+        }
       }
     }
     return { req, res, currentUser };
@@ -145,9 +150,15 @@ const corsOptions = {
 
 server.applyMiddleware({ app, path: '/graphql', cors: corsOptions });
 
+const httpServer = http.createServer(app);
+server.installSubscriptionHandlers(httpServer);
+
 // LAUNCH
-app.listen({ port: GQL_PORT }, () => {
+httpServer.listen({ port: GQL_PORT }, () => {
   console.log(
     `Server is ready at http://localhost:${GQL_PORT}${server.graphqlPath}`
+  );
+  console.log(
+    `Subscriptions ready at ws://localhost:${GQL_PORT}${server.subscriptionsPath}`
   );
 });

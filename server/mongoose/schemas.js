@@ -48,8 +48,8 @@ const memberSchema = new Schema(
       type: Boolean,
       default: true,
     },
-    main: Schema.Types.ObjectId,
-    alts: [Schema.Types.ObjectId],
+    main: { type: Schema.Types.ObjectId, ref: 'Member' },
+    alts: [{ type: Schema.Types.ObjectId, ref: 'Member' }],
     raider: Boolean,
     team: [String],
     guildRank: {

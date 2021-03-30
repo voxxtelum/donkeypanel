@@ -17,6 +17,10 @@ const root = gql`
   type Mutation {
     root: String
   }
+
+  type Subscription {
+    root: String
+  }
 `;
 
 const schemaArray = [root, userSchema, memberSchema];
